@@ -5,7 +5,7 @@ module Hubspot
     class << self
       def get_json(path, opts)
         url = generate_url(path, opts)
-        response = get(url, format: :json)
+        response = get(url, format: :json, read_timeout: read_timeout(opts), open_timeout: open_timeout(opts))
         log_request_and_response url, response
         handle_response(response)
       end
@@ -14,7 +14,15 @@ module Hubspot
         no_parse = opts[:params].delete(:no_parse) { false }
 
         url = generate_url(path, opts[:params])
-        response = post(url, body: opts[:body].to_json, headers: { 'Content-Type' => 'application/json' }, format: :json)
+        response = post(
+          url,
+          body: opts[:body].to_json,
+          headers: { 'Content-Type' => 'application/json' },
+          format: :json,
+          read_timeout: read_timeout(opts),
+          open_timeout: open_timeout(opts)
+        )
+
         log_request_and_response url, response, opts[:body]
         raise(Hubspot::RequestError.new(response)) unless response.success?
 
@@ -22,28 +30,41 @@ module Hubspot
       end
 
       def put_json(path, options)
+        no_parse = options[:params].delete(:no_parse) { false }
         url = generate_url(path, options[:params])
 
         response = put(
           url,
           body: options[:body].to_json,
           headers: { "Content-Type" => "application/json" },
-          format: :json
+          format: :json,
+          read_timeout: read_timeout(options),
+          open_timeout: open_timeout(options),
         )
 
         log_request_and_response(url, response, options[:body])
-        handle_response(response)
+        raise(Hubspot::RequestError.new(response)) unless response.success?
+
+        no_parse ? response : response.parsed_response
       end
 
       def delete_json(path, opts)
         url = generate_url(path, opts)
-        response = delete(url, format: :json)
+        response = delete(url, format: :json, read_timeout: read_timeout(opts), open_timeout: open_timeout(opts))
         log_request_and_response url, response, opts[:body]
         raise(Hubspot::RequestError.new(response)) unless response.success?
         response
       end
 
       protected
+
+      def read_timeout(opts = {})
+        opts.delete(:read_timeout) || Hubspot::Config.read_timeout
+      end
+
+      def open_timeout(opts = {})
+        opts.delete(:open_timeout) || Hubspot::Config.open_timeout
+      end
 
       def handle_response(response)
         if response.success?

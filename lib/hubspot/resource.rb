@@ -93,6 +93,10 @@ module Hubspot
       @changes
     end
 
+    def properties
+      @properties
+    end
+
     def changed?
       !@changes.empty?
     end
